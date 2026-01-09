@@ -117,4 +117,5 @@ public class ProductResource {
       return Response.status(code).entity(exceptionJson).build();
     }
   }
+
 }

@@ -1,8 +1,8 @@
 package com.fulfilment.application.monolith.warehouses.domain.usecases;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fulfilment.application.monolith.warehouses.domain.models.Warehouse;
-import com.fulfilment.application.monolith.warehouses.domain.usecases.CreateWarehouseUseCase;
 
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class CreateWarehouseUseCaseTest {
+
 
     @Inject
     CreateWarehouseUseCase useCase;
@@ -44,9 +45,36 @@ class CreateWarehouseUseCaseTest {
         duplicate.capacity = 100;
         duplicate.stock = 10;
 
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> useCase.create(duplicate)
+        IllegalArgumentException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> useCase.create(duplicate)
+                );
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ex.getMessage().contains("already exists")
         );
     }
+
+    @Test
+    void shouldFailWhenLocationIsInvalid() {
+        Warehouse w = new Warehouse();
+        w.businessUnitCode = "BU-INVALID-LOC";
+        w.location = "UNKNOWN-LOC";
+        w.capacity = 50;
+        w.stock = 10;
+
+        IllegalArgumentException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> useCase.create(w)
+                );
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ex.getMessage().contains("location")
+        );
+    }
+
+
+
 }

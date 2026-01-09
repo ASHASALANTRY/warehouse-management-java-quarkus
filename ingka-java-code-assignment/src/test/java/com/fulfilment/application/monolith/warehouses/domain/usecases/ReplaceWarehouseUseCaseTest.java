@@ -50,4 +50,48 @@ class ReplaceWarehouseUseCaseTest {
                 () -> replaceUseCase.replace(replacement)
         );
     }
+
+    @Test
+    void shouldFailWhenReplacingNonExistingWarehouse() {
+        Warehouse w = new Warehouse();
+        w.businessUnitCode = "BU-NOT-FOUND";
+        w.capacity = 50;
+        w.stock = 10;
+
+        IllegalArgumentException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> replaceUseCase.replace(w)
+                );
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ex.getMessage().contains("not found")
+        );
+    }
+    @Test
+    void shouldFailWhenNewCapacityCannotAccommodateExistingStock() {
+        Warehouse w = new Warehouse();
+        w.businessUnitCode = "BU-REPLACE";
+        w.location = "AMSTERDAM-001";
+        w.capacity = 100;
+        w.stock = 80;
+
+        createUseCase.create(w);
+
+        Warehouse replacement = new Warehouse();
+        replacement.businessUnitCode = "BU-REPLACE";
+        replacement.capacity = 70; // less than stock
+        replacement.stock = 80;
+
+        IllegalArgumentException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> replaceUseCase.replace(replacement)
+                );
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ex.getMessage().contains("capacity")
+        );
+    }
+
 }
