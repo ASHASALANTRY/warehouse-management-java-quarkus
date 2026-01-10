@@ -7,9 +7,12 @@ import com.fulfilment.application.monolith.warehouses.domain.ports.CreateWarehou
 import com.fulfilment.application.monolith.warehouses.domain.ports.WarehouseStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang.StringUtils;
 import org.jboss.logging.Logger;
 
 import java.time.ZonedDateTime;
+import java.util.Objects;
+
 /**
  * Domain use case responsible for creating a new Warehouse.
  *
@@ -48,6 +51,22 @@ public class CreateWarehouseUseCase implements CreateWarehouseOperation {
                 "Attempting to create warehouse with businessUnitCode=%s",
                 warehouse.businessUnitCode
         );
+        if(Objects.isNull(warehouse.businessUnitCode) || Objects.isNull(warehouse.location) || Objects.isNull(warehouse.capacity)||Objects.isNull(warehouse.stock))
+        {
+            LOG.warnf(
+                    "Warehouse creation failed. businessUnitCode,location,capacity,stock cannot be null"
+            );
+            throw new IllegalArgumentException(
+                    "Warehouse creation failed.  businessUnitCode,location,capacity,stock cannot be null");
+        }
+        if( warehouse.capacity<=0 ||warehouse.stock<0)
+        {
+            LOG.warnf(
+                    "Warehouse creation failed. capacity cannot be 0 or less than 0. Stock cannot be less than 0"
+            );
+            throw new IllegalArgumentException(
+                    "Warehouse creation failed. capacity cannot be 0 or less than 0. Stock cannot be less than 0");
+        }
 
         // 1. Business unit uniqueness check
       if (warehouseStore.findByBusinessUnitCode(
