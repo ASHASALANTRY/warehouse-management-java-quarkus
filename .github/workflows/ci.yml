@@ -56,7 +56,7 @@ jobs:
       run: ./mvnw clean compile -B
 
     - name: Run tests
-      run: ./mvnw test -B
+      run: ./mvnw jacoco:prepare-agent test jacoco:report -B
       env:
         # These match your application.properties
         QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/quarkus_test
@@ -84,35 +84,30 @@ jobs:
     - name: Extract Coverage Percentage
       id: coverage
       run: |
-        echo "Extracting coverage from JaCoCo HTML report..."
+        echo "Extracting coverage from JaCoCo report..."
         
-        if [ ! -f "target/site/jacoco/index.html" ]; then
-          echo "index.html not found!"
-          ls -la target/site/jacoco/ || echo "jacoco directory doesn't exist"
-          echo "coverage=0" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-        
-        # Extract the instruction coverage percentage from the Total row in index.html
-        # The HTML contains: <td class="ctr2">88%</td> in the Total row
-        COVERAGE=$(grep -A 50 '>Total<' target/site/jacoco/index.html | grep -oP 'class="ctr2">\K\d+(?=%)' | head -1)
-        
-        if [ -n "$COVERAGE" ] && [ "$COVERAGE" != "0" ]; then
-          echo "Found coverage: $COVERAGE%"
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-        else
-          echo "Could not extract coverage, trying alternative method..."
-          
-          # Alternative: Look for percentage in any part of the Total section
-          COVERAGE=$(grep -oP 'Total[^<]*<[^>]*>\s*\K\d+(?=%)' target/site/jacoco/index.html | head -1)
+        if [ -f "target/site/jacoco/index.html" ]; then
+          # Extract instruction coverage percentage
+          COVERAGE=$(sed -n '/<td>Total<\/td>/,/<\/tr>/p' target/site/jacoco/index.html | grep -oE '[0-9]+%' | head -1 | grep -oE '[0-9]+')
           
           if [ -n "$COVERAGE" ]; then
-            echo "Found coverage (alternative): $COVERAGE%"
+            echo "Successfully extracted coverage: $COVERAGE%"
             echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
           else
-            echo "Could not extract coverage from HTML"
-            echo "coverage=0" >> $GITHUB_OUTPUT
+            echo "Could not extract coverage, trying alternative..."
+            COVERAGE=$(grep -A 10 "Total" target/site/jacoco/index.html | grep -oE '[0-9]+%' | head -1 | grep -oE '[0-9]+')
+            
+            if [ -n "$COVERAGE" ]; then
+              echo "Successfully extracted coverage: $COVERAGE%"
+              echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+            else
+              echo "Could not extract coverage"
+              echo "coverage=0" >> $GITHUB_OUTPUT
+            fi
           fi
+        else
+          echo "index.html not found"
+          echo "coverage=0" >> $GITHUB_OUTPUT
         fi
 
     - name: Comment Coverage on PR
