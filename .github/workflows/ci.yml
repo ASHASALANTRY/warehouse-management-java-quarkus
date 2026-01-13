@@ -63,9 +63,6 @@ jobs:
         QUARKUS_DATASOURCE_USERNAME: postgres
         QUARKUS_DATASOURCE_PASSWORD: root
 
-    - name: Generate JaCoCo Coverage Report
-      run: ./mvnw jacoco:report -B
-
     - name: Upload Test Results
       if: always()
       uses: actions/upload-artifact@v4
