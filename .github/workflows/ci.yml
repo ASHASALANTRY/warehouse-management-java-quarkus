@@ -84,9 +84,30 @@ jobs:
     - name: Extract Coverage Percentage
       id: coverage
       run: |
-        COVERAGE=$(awk -F, '{ instructions += $4 + $5; covered += $5 } END { print int(100*covered/instructions) }' target/site/jacoco/jacoco.csv)
-        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-        echo "Coverage: $COVERAGE%"
+        # Check if jacoco.csv exists
+        if [ -f "target/site/jacoco/jacoco.csv" ]; then
+          echo "Found jacoco.csv"
+          
+          # Extract coverage from CSV (skip header, sum instructions)
+          COVERAGE=$(awk -F',' 'NR>1 {
+            missed += $4
+            covered += $5
+          } END {
+            if (missed + covered > 0) {
+              print int(100 * covered / (missed + covered))
+            } else {
+              print 0
+            }
+          }' target/site/jacoco/jacoco.csv)
+          
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo " Coverage: $COVERAGE%"
+        else
+          echo "jacoco.csv not found!"
+          echo "Listing target/site/jacoco/ contents:"
+          ls -la target/site/jacoco/ || echo "Directory doesn't exist"
+          echo "coverage=0" >> $GITHUB_OUTPUT
+        fi
 
     - name: Comment Coverage on PR
       if: github.event_name == 'pull_request'
@@ -94,11 +115,11 @@ jobs:
       with:
         script: |
           const coverage = '${{ steps.coverage.outputs.coverage }}';
-          const comment = `## 📊 Test Coverage Report
+          const comment = `## Test Coverage Report
           
           **Coverage:** ${coverage}%
           
-          📄 Full JaCoCo report available in workflow artifacts.
+           Full JaCoCo report available in workflow artifacts.
           `;
           
           github.rest.issues.createComment({
@@ -113,10 +134,10 @@ jobs:
         COVERAGE=${{ steps.coverage.outputs.coverage }}
         THRESHOLD=70
         if [ "$COVERAGE" -lt "$THRESHOLD" ]; then
-          echo "❌ Coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
+          echo "Coverage ($COVERAGE%) is below threshold ($THRESHOLD%)"
           exit 1
         else
-          echo "✅ Coverage ($COVERAGE%) meets threshold ($THRESHOLD%)"
+          echo "Coverage ($COVERAGE%) meets threshold ($THRESHOLD%)"
         fi
 
     - name: Package application
