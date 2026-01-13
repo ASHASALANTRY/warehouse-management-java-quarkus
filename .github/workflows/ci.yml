@@ -84,29 +84,56 @@ jobs:
     - name: Extract Coverage Percentage
       id: coverage
       run: |
-        # Check if jacoco.csv exists
-        if [ -f "target/site/jacoco/jacoco.csv" ]; then
-          echo "Found jacoco.csv"
-          
-          # Extract coverage from CSV (skip header, sum instructions)
-          COVERAGE=$(awk -F',' 'NR>1 {
-            missed += $4
-            covered += $5
-          } END {
-            if (missed + covered > 0) {
-              print int(100 * covered / (missed + covered))
+        echo "=== Debugging JaCoCo CSV ==="
+        
+        # Check if CSV exists
+        if [ ! -f "target/site/jacoco/jacoco.csv" ]; then
+          echo "jacoco.csv not found!"
+          ls -la target/site/jacoco/ || echo "Directory doesn't exist"
+          echo "coverage=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        echo "Found jacoco.csv"
+        
+        # Show first few lines to understand format
+        echo "First 5 lines of CSV:"
+        head -5 target/site/jacoco/jacoco.csv
+        
+        # Method 1: Try standard JaCoCo CSV format (columns 4 and 5 are INSTRUCTION_MISSED and INSTRUCTION_COVERED)
+        COVERAGE=$(awk -F',' '
+          BEGIN { total_missed=0; total_covered=0 }
+          NR > 1 {
+            # Column 4 = INSTRUCTION_MISSED, Column 5 = INSTRUCTION_COVERED
+            total_missed += $4
+            total_covered += $5
+          }
+          END {
+            total = total_missed + total_covered
+            if (total > 0) {
+              coverage = int((total_covered * 100) / total)
+              print coverage
             } else {
               print 0
             }
-          }' target/site/jacoco/jacoco.csv)
-          
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
-          echo " Coverage: $COVERAGE%"
-        else
-          echo "jacoco.csv not found!"
-          echo "Listing target/site/jacoco/ contents:"
-          ls -la target/site/jacoco/ || echo "Directory doesn't exist"
-          echo "coverage=0" >> $GITHUB_OUTPUT
+          }
+        ' target/site/jacoco/jacoco.csv)
+        
+        echo "Calculated coverage: $COVERAGE%"
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        
+        # If still 0, try alternative method using index.html
+        if [ "$COVERAGE" = "0" ]; then
+          echo "CSV method returned 0, trying HTML parsing..."
+          if [ -f "target/site/jacoco/index.html" ]; then
+            # Extract percentage from HTML (more reliable)
+            HTML_COVERAGE=$(grep -oP 'Total[^>]*>\s*\K\d+(?=%)' target/site/jacoco/index.html | head -1)
+            if [ -n "$HTML_COVERAGE" ]; then
+              echo "Found coverage from HTML: $HTML_COVERAGE%"
+              echo "coverage=$HTML_COVERAGE" >> $GITHUB_OUTPUT
+              COVERAGE=$HTML_COVERAGE
+            fi
+          fi
         fi
 
     - name: Comment Coverage on PR
